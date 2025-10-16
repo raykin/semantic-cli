@@ -3,11 +3,13 @@
 require "test_helper"
 
 class TestSemanticCli < Minitest::Test
-  def test_that_it_has_a_version_number
+  def test_it_has_a_version_number
     refute_nil ::SemanticCli::VERSION
   end
 
-  def test_it_does_something_useful
-    assert false
+  def test_dsl_integration
+    dsl = SemanticCli::DSL.new
+    dsl.define("echo") { |msg| "echo #{msg}" }
+    assert_equal "echo hi", dsl.call("echo", "hi")
   end
 end
