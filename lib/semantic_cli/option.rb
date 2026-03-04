@@ -7,15 +7,11 @@ module SemanticCli
       classify
     end
 
-    def number?(s)
-      s =~ /^\d+$/
-    end
-
     def classify
       if raw.include?(":")
         key, val = raw.split(":", 2)
         @kind, @name, @arg = :kv_function, key, val
-      elsif number?(raw)
+      elsif raw =~ /^\d+$/
         @kind, @name, @arg = :parameter, nil, raw
       else
         @kind, @name, @arg = :word, raw, nil

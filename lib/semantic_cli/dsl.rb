@@ -1,15 +1,43 @@
 module SemanticCli
   class DSL
+    class Function
+      def initialize(block)
+        @block = block
+        @params = block.parameters
+      end
+
+      def expects_arg?
+        @params.any? { |kind, _| kind == :req || kind == :opt }
+      end
+
+      def expects_rest?
+        @params.any? { |kind, _| kind == :rest }
+      end
+
+      def call(*args)
+        args = args.compact
+        if expects_rest?
+          @block.call(*args)
+        elsif @params.any? { |kind, _| kind == :req }
+          @block.call(args.first)
+        elsif @params.any? { |kind, _| kind == :opt }
+          args.empty? ? @block.call : @block.call(args.first)
+        else
+          @block.call
+        end
+      end
+    end
+
     def initialize
       @functions = {}
     end
 
     def define(name, &block)
       name = name.to_s.strip
-      if name != '' && name.split.size != 1
+      if name != "" && name.split.size != 1
         raise ArgumentError, "Function name must be single word or empty string"
       end
-      @functions[name] = block
+      @functions[name] = Function.new(block)
     end
 
     def exists?(name)
@@ -17,14 +45,21 @@ module SemanticCli
     end
 
     def expects_arg?(name)
-      blk = @functions[name]
-      blk && blk.arity == 1
+      fn = @functions[name]
+      return false unless fn
+      fn.expects_arg?
     end
 
-    def call(name, arg = nil)
-      blk = @functions[name]
-      return nil unless blk
-      blk.arity == 1 ? blk.call(arg) : blk.call
+    def expects_rest?(name)
+      fn = @functions[name]
+      return false unless fn
+      fn.expects_rest?
+    end
+
+    def call(name, *args)
+      fn = @functions[name]
+      return unless fn
+      fn.call(*args)
     end
   end
 end

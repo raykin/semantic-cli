@@ -9,20 +9,41 @@ require_relative "semantic_cli/runner"
 
 module SemanticCli
   class Error < StandardError; end
-  # Your code goes here...
 
-  # Global DSL instance
-  DSL_INSTANCE = SemanticCli::DSL.new
-  RUNNER_INSTANCE = SemanticCli::Runner.new(DSL_INSTANCE)
+  class << self
+    def dsl
+      @dsl ||= DSL.new
+    end
 
-  # Auto-included DSL methods
+    def runner
+      @runner ||= Runner.new(dsl)
+    end
+
+    def reset!
+      @dsl = nil
+      @runner = nil
+    end
+  end
+
   module DSLHelpers
     def fn(name, &block)
-      DSL_INSTANCE.define(name, &block)
+      SemanticCli.dsl.define(name, &block)
+    end
+
+    def cmd(name, command)
+      SemanticCli.dsl.define(name) { command }
     end
 
     def run
-      RUNNER_INSTANCE.execute(ARGV)
+      SemanticCli.runner.execute(ARGV)
+    end
+
+    def macos?
+      RUBY_PLATFORM.include?("darwin")
+    end
+
+    def linux?
+      RUBY_PLATFORM.include?("linux")
     end
   end
 end

@@ -11,6 +11,10 @@ class TestParser < Minitest::Test
     @dsl.define("max")       { |n| "head -n#{n}" }                  # arity 1
     @dsl.define("min")       { |n| "tail -n#{n}" }                  # arity 1
     @dsl.define("grep")      { |term| "grep #{term}" }              # arity 1
+    @dsl.define("http") do |site = "google"|
+      site += ".com" unless site.include?(".")
+      "sudo tcpdump -n -i any tcp and ip and greater 90 and src #{site}"
+    end
   end
 
   def parse(argv)
@@ -139,5 +143,40 @@ class TestParser < Minitest::Test
 
   def test_parser_with_empty_argv_returns_no_fragments
     assert_equal [], parse([])
+  end
+
+  def test_http_with_default
+    frags = parse(%w[http])
+    assert_equal "sudo tcpdump -n -i any tcp and ip and greater 90 and src google.com", frags.first.shell
+  end
+
+  def test_http_with_arg_word
+    frags = parse(%w[http ollama])
+    assert_equal "sudo tcpdump -n -i any tcp and ip and greater 90 and src ollama.com", frags.first.shell
+  end
+
+  def test_http_with_arg_kv
+    frags = parse(%w[http:ollama])
+    assert_equal "sudo tcpdump -n -i any tcp and ip and greater 90 and src ollama.com", frags.first.shell
+  end
+
+  # --- rest args ---
+
+  def test_rest_args_consumes_remaining_tokens
+    @dsl.define("dns") { |c1, *rest| "networksetup -setdnsservers wifi #{c1} #{rest.join(" ")}" }
+    assert_equal ["networksetup -setdnsservers wifi set 8.8.8.8 8.8.4.4"], shells(%w[dns set 8.8.8.8 8.8.4.4])
+  end
+
+  def test_rest_args_with_single_arg
+    @dsl.define("dns") { |c1, *rest| "networksetup -setdnsservers wifi #{c1} #{rest.join(" ")}" }
+    assert_equal ["networksetup -setdnsservers wifi display "], shells(%w[dns display])
+  end
+
+  def test_rest_args_stops_at_known_function
+    @dsl.define("dns") { |c1, *rest| "dns #{c1} #{rest.join(" ")}" }
+    frags = parse(%w[dns set 8.8.8.8 dirsize])
+    assert_equal 2, frags.size
+    assert_equal "dns set 8.8.8.8", frags[0].shell
+    assert_equal "du -sh -- * | sort -hr", frags[1].shell
   end
 end

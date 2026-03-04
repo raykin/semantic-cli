@@ -1,5 +1,7 @@
 module SemanticCli
   class Parser
+    ParseResult = Data.define(:fragment, :consumed)
+
     def initialize(argv, dsl)
       @tokens = argv.dup
       @dsl = dsl
@@ -12,15 +14,13 @@ module SemanticCli
       last_fn_consumed_arg = false
 
       while i < @tokens.size
-        token = @tokens[i]
-        next_token = @tokens[i + 1]
-        fragment = parse_token(token, next_token, last_fn, last_fn_consumed_arg)
+        result = parse_token(i, last_fn, last_fn_consumed_arg)
 
-        if fragment
-          @fragments << fragment
-          last_fn = fragment.name
-          last_fn_consumed_arg = fragment.arg ? true : false
-          i += fragment.arg ? 2 : 1
+        if result
+          @fragments << result.fragment
+          last_fn = result.fragment.name
+          last_fn_consumed_arg = result.consumed > 1
+          i += result.consumed
         else
           i += 1
         end
@@ -29,39 +29,66 @@ module SemanticCli
       @fragments
     end
 
-    def parse_token(token, next_token, last_fn, last_fn_consumed_arg)
+    private
+
+    def parse_token(index, last_fn, last_fn_consumed_arg)
+      token = @tokens[index]
+      next_token = @tokens[index + 1]
       opt = Option.new(token)
 
       case opt.kind
       when :kv_function
-        return Fragment.new(opt.name, opt.arg, @dsl.call(opt.name, opt.arg)) if @dsl.exists?(opt.name)
+        return result(opt.name, opt.arg, 1) if @dsl.exists?(opt.name)
         warn "Unknown function: #{opt.name}"
-        return nil
+        nil
 
       when :parameter
         if last_fn && @dsl.expects_arg?(last_fn) && !last_fn_consumed_arg
-          return Fragment.new(last_fn, opt.arg, @dsl.call(last_fn, opt.arg))
+          result(last_fn, opt.arg, 1)
         else
           warn "Orphan parameter: #{opt.arg}"
-          return nil
+          nil
         end
 
       when :word
         if @dsl.exists?(opt.name)
           if @dsl.expects_arg?(opt.name) && next_token && !@dsl.exists?(next_token) && !next_token.include?(":")
-            return Fragment.new(opt.name, next_token, @dsl.call(opt.name, next_token))
+            if @dsl.expects_rest?(opt.name)
+              rest_args = collect_rest(index + 1)
+              result_rest(opt.name, rest_args, 1 + rest_args.size)
+            else
+              result(opt.name, next_token, 2)
+            end
           else
-            return Fragment.new(opt.name, nil, @dsl.call(opt.name))
+            result(opt.name, nil, 1)
           end
+        elsif last_fn && @dsl.expects_arg?(last_fn) && !last_fn_consumed_arg
+          result(last_fn, opt.name, 1)
         else
-          if last_fn && @dsl.expects_arg?(last_fn) && !last_fn_consumed_arg
-            return Fragment.new(last_fn, opt.name, @dsl.call(last_fn, opt.name))
-          else
-            warn "Unknown token: #{opt.name}"
-            return nil
-          end
+          warn "Unknown token: #{opt.name}"
+          nil
         end
       end
+    end
+
+    def collect_rest(start)
+      args = []
+      i = start
+      while i < @tokens.size
+        t = @tokens[i]
+        break if @dsl.exists?(t) || t.include?(":")
+        args << t
+        i += 1
+      end
+      args
+    end
+
+    def result(name, arg, consumed)
+      ParseResult.new(Fragment.new(name, arg, @dsl.call(name, arg)), consumed)
+    end
+
+    def result_rest(name, args, consumed)
+      ParseResult.new(Fragment.new(name, args.first, @dsl.call(name, *args)), consumed)
     end
   end
 end
