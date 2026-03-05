@@ -92,8 +92,8 @@ watch max:5
 Wrap the commands you use every day into short, memorable names:
 
 ```ruby
-cmd '77', 'ssh root@192.168.77.1'
-cmd '7744', 'ssh root@lzm -p 7744'
+cmd 'dev', 'ssh user@dev-server'
+cmd 'db', 'ssh user@db-server -p 3322'
 ```
 
 ### DevOps Runbook
