@@ -3,8 +3,8 @@
 A Ruby DSL for building flag-free CLIs. You define named functions that return shell commands — the framework takes care of parsing, argument resolution, and piping.
 
 ```
-watch log v2ray grep error
-→ Running: tail -f /usr/local/etc/v2ray/share.log | grep error
+watch log nginx grep error
+→ Running: tail -f /var/log/nginx/access.log | grep error
 ```
 
 ## Installation
@@ -21,11 +21,11 @@ Create a script (e.g., `restart`):
 #!/usr/bin/env ruby
 require 'semantic_cli'
 
-fn('v2ray') do
+fn('nginx') do
   if macos?
-    "brew services restart v2ray"
+    "brew services restart nginx"
   else
-    "sudo systemctl restart v2ray"
+    "sudo systemctl restart nginx"
   end
 end
 
@@ -40,7 +40,7 @@ end
 fn('') do
   <<~HELP
     Examples:
-      restart v2ray → restart v2ray service
+      restart nginx → restart nginx service
       restart psql  → restart postgresql
   HELP
 end
@@ -48,7 +48,7 @@ end
 run
 ```
 
-Then just run: `restart v2ray`
+Then just run: `restart nginx`
 
 ### DSL
 
@@ -60,7 +60,7 @@ Then just run: `restart v2ray`
 ### Argument Styles
 
 ```ruby
-fn('log') { |svc| "journalctl -u #{svc} -f" }              # required arg:  watch log v2ray
+fn('log') { |svc| "journalctl -u #{svc} -f" }              # required arg:  watch log nginx
 fn('http') { |site='google'| "curl #{site}.com" }           # optional arg:  watch http / watch http github
 fn('dns') { |c1, *rest| "dig #{c1} #{rest.join(' ')}" }     # rest args:     dns set 8.8.8.8 8.8.4.4
 fn('status') { "kubectl get pods" }                          # no arg:        ops status
@@ -72,8 +72,8 @@ cmd 'deploy', 'kubectl rollout restart deployment'           # static string: op
 When multiple functions are chained, their outputs are joined with `|`:
 
 ```
-watch log v2ray grep error
-→ Running: journalctl -u v2ray -f | grep error
+watch log nginx grep error
+→ Running: journalctl -u nginx -f | grep error
 ```
 
 ### Key-Value Syntax
