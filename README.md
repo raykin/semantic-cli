@@ -110,17 +110,7 @@ fn('status') { "kubectl get pods -A" }
 
 ### Cross-Platform Scripts
 
-Write scripts that work on both macOS and Linux:
-
-```ruby
-fn('proxy') do |c1='display'|
-  if macos?
-    "networksetup -setsocksfirewallproxystate wifi #{c1}"
-  else
-    "gsettings set org.gnome.system.proxy mode manual"
-  end
-end
-```
+Write scripts that work on both macOS and Linux — see [examples/wifi](examples/wifi) for a complete example covering proxy, DNS, platform detection, and rest args.
 
 ## Development
 

@@ -1,0 +1,79 @@
+#!/usr/bin/env ruby
+require 'semantic_cli'
+
+WIFI_IF = if macos?
+            "en0"
+          else
+            `nmcli -t -f DEVICE,TYPE dev | grep wifi | head -1 | cut -d: -f1`.strip
+          end
+
+fn 'proxy' do |c1='display'|
+  if macos?
+    case c1
+    when 'on'
+      "networksetup -setsocksfirewallproxystate wifi on"
+    when 'off'
+      "networksetup -setsocksfirewallproxystate wifi off"
+    else
+      "networksetup -getsocksfirewallproxy wifi && networksetup -getdnsservers wifi"
+    end
+  else
+    case c1
+    when 'on'
+      "gsettings set org.gnome.system.proxy mode manual"
+    when 'off'
+      "gsettings set org.gnome.system.proxy mode none"
+    when 'auto'
+      "gsettings set org.gnome.system.proxy mode auto"
+    else
+      "gsettings get org.gnome.system.proxy mode && gsettings get org.gnome.system.proxy.socks host && gsettings get org.gnome.system.proxy.socks port"
+    end
+  end
+end
+
+fn 'dns' do |c1=nil, *rest|
+  if macos?
+    case c1
+    when 'set'
+      "networksetup -setdnsservers wifi #{rest.join(" ")}"
+    else
+      "networksetup -getdnsservers wifi"
+    end
+  else
+    case c1
+    when 'set'
+      "resolvectl dns #{WIFI_IF} #{rest.join(" ")}"
+    else
+      "resolvectl dns #{WIFI_IF}"
+    end
+  end
+end
+
+fn '' do
+  if macos?
+    system "networksetup -getairportnetworkname #{WIFI_IF} && ipconfig getifaddr #{WIFI_IF} && networksetup -getsocksfirewallproxy wifi"
+  else
+    system "echo 'SSID:' $(iwgetid -r) && echo 'IP:' $(ip -4 addr show #{WIFI_IF} | grep -oP 'inet \\K[\\d.]+') && echo 'Proxy:' $(gsettings get org.gnome.system.proxy mode)"
+  end
+  if macos?
+    <<~HELP
+
+      Commands:
+        wifi proxy on/off → enable/disable socks proxy
+        wifi proxy        → show proxy details
+        wifi dns          → show DNS servers
+        wifi dns set 8.8.8.8 8.8.4.4 → set DNS servers
+    HELP
+  else
+    <<~HELP
+
+      Commands:
+        wifi proxy on/off/auto → set proxy mode (manual/none/auto)
+        wifi proxy             → show proxy details
+        wifi dns               → show DNS servers
+        wifi dns set 8.8.8.8 8.8.4.4 → set DNS servers
+    HELP
+  end
+end
+
+run
