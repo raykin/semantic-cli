@@ -41,7 +41,7 @@ class TestParser < Minitest::Test
   # --- arity-1 functions consuming next token ---
 
   def test_word_plus_parameter_consumes_next_for_arity_one
-    assert_equal ["journalctl -u v2ray -f"], shells(%w[log v2ray])
+    assert_equal ["journalctl -u nginx -f"], shells(%w[log nginx])
     assert_equal ["lsof -i :8888"], shells(%w[port 8888])
   end
 
@@ -103,8 +103,8 @@ class TestParser < Minitest::Test
 
   def test_chain_log_with_grep_and_term
     assert_equal(
-      ["journalctl -u v2ray -f", "grep error"],
-      shells(%w[log v2ray grep error])
+      ["journalctl -u nginx -f", "grep error"],
+      shells(%w[log nginx grep error])
     )
   end
 

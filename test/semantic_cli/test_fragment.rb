@@ -2,9 +2,9 @@
 
 class TestFragment < Minitest::Test
   def test_fragment_attributes
-    frag = SemanticCli::Fragment.new("log", "v2ray", "journalctl -u v2ray -f")
+    frag = SemanticCli::Fragment.new("log", "nginx", "journalctl -u nginx -f")
     assert_equal "log", frag.name
-    assert_equal "v2ray", frag.arg
-    assert_equal "journalctl -u v2ray -f", frag.shell
+    assert_equal "nginx", frag.arg
+    assert_equal "journalctl -u nginx -f", frag.shell
   end
 end

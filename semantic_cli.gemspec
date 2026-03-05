@@ -8,16 +8,16 @@ Gem::Specification.new do |spec|
   spec.authors = ["raykin"]
   spec.email = ["raykincoldxiao@gmail.com"]
 
-  spec.summary = "Generate Semantic CLI"
-  spec.description = "Use Ruby DSL to generate semantic cli usage"
-  spec.homepage = "https://notready.org"
+  spec.summary = "A Ruby DSL for building flag-free CLIs"
+  spec.description = "Define named functions that return shell commands, with automatic argument resolution and piping"
+  spec.homepage = "https://github.com/raykin/semantic-cli"
   spec.license = "MIT"
   spec.required_ruby_version = ">= 3.3.0"
 
-  spec.metadata["allowed_push_host"] = "TODO: Set to your gem server 'https://example.com'"
+  spec.metadata["allowed_push_host"] = "https://rubygems.org"
   spec.metadata["homepage_uri"] = spec.homepage
-  spec.metadata["source_code_uri"] = "https://github.com/notready"
-  spec.metadata["changelog_uri"] = "https://github.com/notready/changelog"
+  spec.metadata["source_code_uri"] = "https://github.com/raykin/semantic-cli"
+  spec.metadata["changelog_uri"] = "https://github.com/raykin/semantic-cli/releases"
 
   # Specify which files should be added to the gem when it is released.
   # The `git ls-files -z` loads the files in the RubyGem that have been added into git.
