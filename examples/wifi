@@ -2,7 +2,7 @@
 require 'semantic_cli'
 
 WIFI_IF = if macos?
-            "en0"
+            `networksetup -listallhardwareports | awk '/Wi-Fi|802\\.11/{getline; print $2}'`.strip
           else
             `nmcli -t -f DEVICE,TYPE dev | grep wifi | head -1 | cut -d: -f1`.strip
           end
@@ -15,7 +15,7 @@ fn 'proxy' do |c1='display'|
     when 'off'
       "networksetup -setsocksfirewallproxystate wifi off"
     else
-      "networksetup -getsocksfirewallproxy wifi && networksetup -getdnsservers wifi"
+      "networksetup -getsocksfirewallproxy wifi"
     end
   else
     case c1
@@ -51,7 +51,7 @@ end
 
 fn '' do
   if macos?
-    system "networksetup -getairportnetworkname #{WIFI_IF} && ipconfig getifaddr #{WIFI_IF} && networksetup -getsocksfirewallproxy wifi"
+    system "networksetup -getairportnetwork #{WIFI_IF} && ipconfig getifaddr #{WIFI_IF} && networksetup -getsocksfirewallproxy wifi"
   else
     system "echo 'SSID:' $(iwgetid -r) && echo 'IP:' $(ip -4 addr show #{WIFI_IF} | grep -oP 'inet \\K[\\d.]+') && echo 'Proxy:' $(gsettings get org.gnome.system.proxy mode)"
   end
