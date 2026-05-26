@@ -2,7 +2,8 @@
 require 'semantic_cli'
 
 WIFI_IF = if macos?
-            `networksetup -listallhardwareports | awk '/Wi-Fi|802\\.11/{getline; print $2}'`.strip
+            candidates = `networksetup -listallhardwareports | awk '/Wi-Fi|802\\.11/{getline; print $2}'`.strip.split("\n")
+            candidates.find { |iface| `ifconfig #{iface} 2>/dev/null`.include?('status: active') } || candidates.first
           else
             `nmcli -t -f DEVICE,TYPE dev | grep wifi | head -1 | cut -d: -f1`.strip
           end
