@@ -1,0 +1,5 @@
+# AWS profile name (maps to AWS_PROFILE)
+profile=default
+
+# AWS region (maps to AWS_REGION)
+# region=us-west-2

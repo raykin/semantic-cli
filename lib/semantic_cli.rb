@@ -1,11 +1,15 @@
 # frozen_string_literal: true
 
+require "json"
 require_relative "semantic_cli/version"
 require_relative "semantic_cli/dsl"
 require_relative "semantic_cli/option"
 require_relative "semantic_cli/fragment"
 require_relative "semantic_cli/parser"
 require_relative "semantic_cli/runner"
+require_relative "semantic_cli/config"
+require_relative "semantic_cli/resource"
+require_relative "semantic_cli/picker"
 
 module SemanticCli
   class Error < StandardError; end
@@ -32,6 +36,14 @@ module SemanticCli
 
     def cmd(name, command)
       SemanticCli.dsl.define(name) { command }
+    end
+
+    def set(key, value)
+      SemanticCli.dsl.set(key, value)
+    end
+
+    def resource(name, aliases: [], &block)
+      SemanticCli.dsl.define_resource(name, aliases: aliases, &block)
     end
 
     def run

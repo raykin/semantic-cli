@@ -1,0 +1,29 @@
+#!/usr/bin/env ruby
+require 'semantic_cli'
+
+fn('dirsize') do
+  "du -sh -- | sort -hr "
+end
+
+fn('filesize') do
+  "du -sh -- .??* * 2>/dev/null | sort -hr"
+end
+
+fn('max') do |num|
+  "head -n#{num}"
+end
+
+fn('min') do |num|
+  "tail -n#{num}"
+end
+
+fn('') do
+  <<~HELP
+    Examples:
+      list dirsize        → show directory sizes sorted
+      list filesize       → show file sizes sorted
+      list filesize max:5 → show top 5 largest files
+  HELP
+end
+
+run

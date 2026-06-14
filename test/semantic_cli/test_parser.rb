@@ -179,4 +179,91 @@ class TestParser < Minitest::Test
     assert_equal "dns set 8.8.8.8", frags[0].shell
     assert_equal "du -sh -- * | sort -hr", frags[1].shell
   end
+
+  # --- resource parsing ---
+
+  def setup_resource
+    @dsl.define_resource("instances") do
+      list { "aws lightsail get-instances" }
+      id :instanceName
+      display :instanceName, :state
+      action("delete") { |item| "aws lightsail delete-instance --instance-name #{item[:id]}" }
+      action("reboot") { |item| "aws lightsail reboot-instance --instance-name #{item[:id]}" }
+    end
+  end
+
+  def test_resource_list_explicit
+    setup_resource
+    frags = parse(%w[instances list])
+    assert_equal 1, frags.size
+    assert_instance_of SemanticCli::ResourceFragment, frags.first
+    assert_equal "instances", frags.first.name
+    assert_nil frags.first.action_name
+  end
+
+  def test_resource_list_implicit
+    setup_resource
+    frags = parse(%w[instances])
+    assert_equal 1, frags.size
+    assert_instance_of SemanticCli::ResourceFragment, frags.first
+    assert_nil frags.first.action_name
+  end
+
+  def test_resource_direct_action
+    setup_resource
+    frags = parse(%w[instances delete])
+    assert_equal 1, frags.size
+    assert_instance_of SemanticCli::ResourceFragment, frags.first
+    assert_equal "delete", frags.first.action_name
+  end
+
+  def test_resource_unknown_action_warns
+    setup_resource
+    _, err = capture_io { parse(%w[instances upgrade]) }
+    assert_match(/Unknown action 'upgrade' for resource 'instances'/, err)
+  end
+
+  def test_resource_does_not_conflict_with_functions
+    setup_resource
+    frags = parse(%w[instances list log nginx])
+    assert_equal 2, frags.size
+    assert_instance_of SemanticCli::ResourceFragment, frags[0]
+    assert_instance_of SemanticCli::Fragment, frags[1]
+  end
+
+  def test_profile_setting_via_kv
+    setup_resource
+    frags = parse(%w[p:raykin-cli instances])
+    assert_equal 1, frags.size
+    assert_instance_of SemanticCli::ResourceFragment, frags.first
+    assert_equal "raykin-cli", @dsl.get(:profile)
+  end
+
+  def test_profile_setting_with_functions
+    @dsl.set(:profile, "default")
+    parse(%w[p:raykin-cli log nginx])
+    assert_equal "raykin-cli", @dsl.get(:profile)
+  end
+
+  def test_region_setting_via_kv
+    parse(%w[r:us-west-2 log nginx])
+    assert_equal "us-west-2", @dsl.get(:region)
+  end
+
+  def test_resource_alias
+    @dsl.define_resource("lightsail-instances", aliases: ["lightsail"]) do
+      list { "aws lightsail get-instances" }
+      id :name
+      display :name
+      action("delete") { |item| "delete #{item[:id]}" }
+    end
+
+    frags = parse(%w[lightsail])
+    assert_equal 1, frags.size
+    assert_instance_of SemanticCli::ResourceFragment, frags.first
+    assert_equal "lightsail", frags.first.name
+
+    frags = parse(%w[lightsail delete])
+    assert_equal "delete", frags.first.action_name
+  end
 end

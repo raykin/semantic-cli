@@ -1,12 +1,14 @@
 PATH
   remote: .
   specs:
-    semantic_cli (0.2.0)
+    semantic_cli (0.3.0)
+      cli-ui (~> 2.7)
 
 GEM
   remote: https://rubygems.org/
   specs:
     ast (2.4.3)
+    cli-ui (2.7.0)
     date (3.5.0)
     erb (6.0.0)
     io-console (0.8.1)
@@ -74,7 +76,7 @@ GEM
     tsort (0.2.0)
     unicode-display_width (3.2.0)
       unicode-emoji (~> 4.1)
-    unicode-emoji (4.1.0)
+    unicode-emoji (4.2.0)
 
 PLATFORMS
   ruby

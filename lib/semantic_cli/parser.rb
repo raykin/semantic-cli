@@ -1,5 +1,7 @@
 module SemanticCli
   class Parser
+    SETTING_KEYS = { "p" => :profile, "r" => :region }.freeze
+
     ParseResult = Data.define(:fragment, :consumed)
 
     def initialize(argv, dsl)
@@ -38,6 +40,10 @@ module SemanticCli
 
       case opt.kind
       when :kv_function
+        if SETTING_KEYS.key?(opt.name)
+          @dsl.set(SETTING_KEYS[opt.name], opt.arg, runtime: true)
+          return nil
+        end
         return result(opt.name, opt.arg, 1) if @dsl.exists?(opt.name)
         warn "Unknown function: #{opt.name}"
         nil
@@ -51,7 +57,9 @@ module SemanticCli
         end
 
       when :word
-        if @dsl.exists?(opt.name)
+        if @dsl.resource?(opt.name)
+          return parse_resource(opt.name, index)
+        elsif @dsl.exists?(opt.name)
           if @dsl.expects_arg?(opt.name) && next_token && !@dsl.exists?(next_token) && !next_token.include?(":")
             if @dsl.expects_rest?(opt.name)
               rest_args = collect_rest(index + 1)
@@ -68,6 +76,21 @@ module SemanticCli
           warn "Unknown token: #{opt.name}"
           nil
         end
+      end
+    end
+
+    def parse_resource(name, index)
+      resource = @dsl.get_resource(name)
+      next_token = @tokens[index + 1]
+
+      if next_token == "list" || next_token.nil?
+        consumed = next_token ? 2 : 1
+        ParseResult.new(ResourceFragment.new(name, resource, nil), consumed)
+      elsif resource.actions.key?(next_token)
+        ParseResult.new(ResourceFragment.new(name, resource, next_token), 2)
+      else
+        warn "Unknown action '#{next_token}' for resource '#{name}'"
+        nil
       end
     end
 

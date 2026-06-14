@@ -30,6 +30,14 @@ module SemanticCli
 
     def initialize
       @functions = {}
+      @resources = {}
+      @settings = {}
+      @runtime_settings = {}
+      load_config
+    end
+
+    def load_config
+      Config.load.each { |k, v| @settings[k] = v }
     end
 
     def define(name, &block)
@@ -60,6 +68,43 @@ module SemanticCli
       fn = @functions[name]
       return unless fn
       fn.call(*args)
+    end
+
+    def define_resource(name, aliases: [], &block)
+      resource = Resource.build(name, aliases: aliases, &block)
+      @resources[name.to_s] = resource
+      aliases.each { |a| @resources[a.to_s] = resource }
+    end
+
+    def resource?(name)
+      @resources.key?(name.to_s)
+    end
+
+    def get_resource(name)
+      @resources[name.to_s]
+    end
+
+    def set(key, value, runtime: false)
+      if runtime
+        @runtime_settings[key.to_sym] = value
+      else
+        @settings[key.to_sym] = value
+      end
+    end
+
+    def get(key)
+      @runtime_settings[key.to_sym] || @settings[key.to_sym]
+    end
+
+    def debug?
+      ENV["DEBUG"] == "true"
+    end
+
+    def env_prefix
+      pairs = []
+      pairs << "export AWS_PROFILE=#{get(:profile)}" if get(:profile)
+      pairs << "export AWS_REGION=#{get(:region)}" if get(:region)
+      pairs.empty? ? "" : pairs.join(" && ") + " && "
     end
   end
 end

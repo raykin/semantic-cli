@@ -1,0 +1,132 @@
+#!/usr/bin/env ruby
+require 'semantic_cli'
+
+%w[aws jq].each do |cmd|
+  unless system("command -v #{cmd} >/dev/null 2>&1")
+    abort "#{cmd} is required but not installed."
+  end
+end
+
+def all_region_scan(regions_cmd, list_cmd)
+  inject = 'jq --arg r "$r" "[.[] | . + {region: \$r}]" 2>/dev/null'
+  loop_body = "for r in $(#{regions_cmd}); do (#{list_cmd} | #{inject}) & done; wait"
+  "bash -c '#{loop_body}' | jq -s 'add // []'"
+end
+
+def aws_account_id
+  profile = SemanticCli.dsl.get(:profile)
+  flag = profile ? "--profile #{profile}" : ""
+  id = `aws sts get-caller-identity #{flag} --region us-east-1 --query Account --output text`.strip
+  abort "Cannot resolve AWS account ID." if id.empty?
+  id
+end
+
+LIGHTSAIL_REGIONS = 'aws lightsail get-regions --query "regions[].name" --output text 2>/dev/null'
+EC2_REGIONS = 'aws ec2 describe-regions --query "Regions[].RegionName" --output text 2>/dev/null'
+
+resource 'lightsail-instances', aliases: ['lightsail', 'ls'] do
+  list do
+    all_region_scan(LIGHTSAIL_REGIONS,
+      'aws lightsail get-instances --region "$r" --query "instances[]" --output json 2>/dev/null')
+  end
+  id :name
+  display :region, :name, :"state.name", :blueprintId, :publicIpAddress
+
+  action('delete') { |item| "aws lightsail delete-instance --instance-name #{item['name']} --region #{item['region']}" }
+  action('reboot') { |item| "aws lightsail reboot-instance --instance-name #{item['name']} --region #{item['region']}" }
+  action('stop')   { |item| "aws lightsail stop-instance --instance-name #{item['name']} --region #{item['region']}" }
+  action('start')  { |item| "aws lightsail start-instance --instance-name #{item['name']} --region #{item['region']}" }
+  action('ssh')    { |item| "ssh ubuntu@#{item['publicIpAddress']}" }
+end
+
+resource 'lightsail-databases' do
+  list do
+    all_region_scan(LIGHTSAIL_REGIONS,
+      'aws lightsail get-relational-databases --region "$r" --query "relationalDatabases[]" --output json 2>/dev/null')
+  end
+  id :name
+  display :region, :name, :engine, :relationalDatabaseBlueprintId
+
+  action('delete') { |item| "aws lightsail delete-relational-database --relational-database-name #{item['name']} --region #{item['region']}" }
+  action('reboot') { |item| "aws lightsail reboot-relational-database --relational-database-name #{item['name']} --region #{item['region']}" }
+end
+
+resource 's3-buckets', aliases: ['s3'] do
+  list { "aws s3api list-buckets --query 'Buckets' --output json" }
+  id :Name
+  display :Name, :CreationDate
+
+  action('delete') { |item| "aws s3 rb s3://#{item['Name']} --force" }
+  action('ls')     { |item| "aws s3 ls s3://#{item['Name']}" }
+  action('size')   { |item| "aws s3 ls s3://#{item['Name']} --recursive --summarize | tail -2" }
+end
+
+resource 'ec2-instances', aliases: ['ec2'] do
+  list do
+    all_region_scan(EC2_REGIONS,
+      'aws ec2 describe-instances --region "$r" --query "Reservations[].Instances[]" --output json 2>/dev/null')
+  end
+  id :InstanceId
+  display :region, :InstanceId, :"State.Name", :InstanceType, :PublicIpAddress
+
+  action('stop')      { |item| "aws ec2 stop-instances --instance-ids #{item['InstanceId']} --region #{item['region']}" }
+  action('start')     { |item| "aws ec2 start-instances --instance-ids #{item['InstanceId']} --region #{item['region']}" }
+  action('terminate') { |item| "aws ec2 terminate-instances --instance-ids #{item['InstanceId']} --region #{item['region']}" }
+  action('reboot')    { |item| "aws ec2 reboot-instances --instance-ids #{item['InstanceId']} --region #{item['region']}" }
+  action('ssh')       { |item| "ssh ec2-user@#{item['PublicIpAddress']}" }
+end
+
+resource 'budgets', aliases: ['budget'] do
+  r = '--region us-east-1'
+
+  list { "aws budgets describe-budgets --account-id #{aws_account_id} #{r} --query 'Budgets' --output json" }
+  id :BudgetName
+  display :BudgetName, :BudgetType, :"BudgetLimit.Amount", :"BudgetLimit.Unit"
+
+  action('inspect') do |item|
+    acct = aws_account_id
+    name = item['BudgetName']
+    budget_q = 'Budget.{Name:BudgetName,Limit:BudgetLimit.Amount,Unit:BudgetLimit.Unit,Period:TimeUnit,Actual:CalculatedSpend.ActualSpend.Amount,Forecast:CalculatedSpend.ForecastedSpend.Amount,IncludeCredit:CostTypes.IncludeCredit}'
+    notif_q = 'Notifications[].{Type:NotificationType,Operator:ComparisonOperator,Threshold:Threshold,State:NotificationState}'
+    action_q = 'Actions[].{Id:ActionId,Type:ActionType,Threshold:ActionThreshold.ActionThresholdValue,Approval:ApprovalModel,Status:Status}'
+    [
+      "echo '── Budget: #{name} ──' && aws budgets describe-budget --account-id #{acct} #{r} --budget-name '#{name}' --query '#{budget_q}' --output table",
+      "echo '── Notifications ──' && (aws budgets describe-notifications-for-budget --account-id #{acct} #{r} --budget-name '#{name}' --query '#{notif_q}' --output table 2>/dev/null || echo '  (none)')",
+      "echo '── Budget Actions ──' && (aws budgets describe-budget-actions-for-budget --account-id #{acct} #{r} --budget-name '#{name}' --query '#{action_q}' --output table 2>/dev/null || echo '  (none)')",
+      "echo '── IAM Policies (raykin-cli) ──' && (aws iam list-attached-user-policies --user-name raykin-cli --query 'AttachedPolicies[].{Policy:PolicyName,Arn:PolicyArn}' --output table 2>/dev/null || echo '  (none)')"
+    ].join(' && echo && ')
+  end
+
+  action('detail') { |item| "aws budgets describe-budget --account-id #{aws_account_id} #{r} --budget-name '#{item['BudgetName']}' --output yaml" }
+  action('notifications') { |item| "aws budgets describe-notifications-for-budget --account-id #{aws_account_id} #{r} --budget-name '#{item['BudgetName']}' --output table" }
+  action('delete') { |item| "aws budgets delete-budget --account-id #{aws_account_id} #{r} --budget-name '#{item['BudgetName']}'" }
+end
+
+fn('') do
+  <<~HELP
+    Usage: ax [p:profile] <resource> [action]
+
+    Resources:
+      lightsail / ls          → Lightsail instances
+      lightsail-databases    → Lightsail databases
+      ec2                    → EC2 instances
+      s3                     → S3 buckets
+      budgets / budget        → AWS Budgets (inspect, notifications, detail, delete)
+
+    Options:
+      p:<name>               → override AWS profile (e.g. p:raykin-cli)
+      r:<region>             → override AWS region (e.g. r:us-west-2)
+
+    Examples:
+      ax lightsail             → list instances, pick one, choose action
+      ax lightsail delete      → list instances, pick one, delete it
+      ax ec2                   → list EC2 instances
+      ax s3                    → list S3 buckets
+      ax p:raykin-cli lightsail → use raykin-cli profile
+
+    Picker: use ↑↓ to navigate, 'f' to filter, Enter to select, Ctrl+C to quit
+    Config: place .axrc in project dir with profile=<name> for per-project defaults
+  HELP
+end
+
+run
