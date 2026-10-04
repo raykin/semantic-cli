@@ -13,6 +13,12 @@ class TestRunner < Minitest::Test
     assert_match(/Examples:/, out)
   end
 
+  def test_complete_prints_names_without_running
+    @dsl.define("") { "Examples:\n  echo hi" }
+    out, _ = capture_io { @runner.execute(%w[__complete ec]) }
+    assert_equal "echo\n", out
+  end
+
   def test_execute_with_command
     out, _ = capture_io { @runner.execute(%w[echo hi]) }
     assert_match(/→ Running: echo hi/, out)

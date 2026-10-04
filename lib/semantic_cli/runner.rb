@@ -6,6 +6,11 @@ module SemanticCli
     end
 
     def execute(argv)
+      if argv.first == "__complete"
+        puts @dsl.names
+        return
+      end
+
       if argv.empty?
         if @dsl.exists?('')
           help_text = @dsl.call('')

@@ -21,6 +21,13 @@ class TestDSL < Minitest::Test
     assert @dsl.expects_arg?("foo")
   end
 
+  def test_names_lists_functions_and_resources_without_help
+    @dsl.define("") { "help" }
+    @dsl.define("hello") { "echo hi" }
+    @dsl.define_resource("instances", aliases: ["i"]) { list { "echo '[]'" } }
+    assert_equal %w[hello instances i], @dsl.names
+  end
+
   def test_define_resource
     @dsl.define_resource("instances") do
       list { "aws lightsail get-instances" }

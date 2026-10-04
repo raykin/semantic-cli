@@ -52,6 +52,10 @@ module SemanticCli
       @functions.key?(name)
     end
 
+    def names
+      (@functions.keys - [""]) + @resources.keys
+    end
+
     def expects_arg?(name)
       fn = @functions[name]
       return false unless fn
