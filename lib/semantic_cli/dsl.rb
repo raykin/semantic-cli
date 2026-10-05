@@ -1,9 +1,14 @@
 module SemanticCli
   class DSL
     class Function
-      def initialize(block)
+      def initialize(block, follow: false)
         @block = block
         @params = block.parameters
+        @follow = follow
+      end
+
+      def follow?
+        @follow
       end
 
       def expects_arg?
@@ -40,12 +45,12 @@ module SemanticCli
       Config.load.each { |k, v| @settings[k] = v }
     end
 
-    def define(name, &block)
+    def define(name, follow: false, &block)
       name = name.to_s.strip
       if name != "" && name.split.size != 1
         raise ArgumentError, "Function name must be single word or empty string"
       end
-      @functions[name] = Function.new(block)
+      @functions[name] = Function.new(block, follow: follow)
     end
 
     def exists?(name)
@@ -66,6 +71,12 @@ module SemanticCli
       fn = @functions[name]
       return false unless fn
       fn.expects_rest?
+    end
+
+    def follow?(name)
+      fn = @functions[name]
+      return false unless fn
+      fn.follow?
     end
 
     def call(name, *args)

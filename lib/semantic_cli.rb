@@ -10,6 +10,7 @@ require_relative "semantic_cli/runner"
 require_relative "semantic_cli/config"
 require_relative "semantic_cli/resource"
 require_relative "semantic_cli/picker"
+require_relative "semantic_cli/follow_view"
 
 module SemanticCli
   class Error < StandardError; end
@@ -30,12 +31,12 @@ module SemanticCli
   end
 
   module DSLHelpers
-    def fn(name, &block)
-      SemanticCli.dsl.define(name, &block)
+    def fn(name, follow: false, &block)
+      SemanticCli.dsl.define(name, follow: follow, &block)
     end
 
-    def cmd(name, command)
-      SemanticCli.dsl.define(name) { command }
+    def cmd(name, command, follow: false)
+      SemanticCli.dsl.define(name, follow: follow) { command }
     end
 
     def set(key, value)

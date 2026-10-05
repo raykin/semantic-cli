@@ -1,8 +1,10 @@
 module SemanticCli
   class Runner
-    def initialize(dsl, picker: Picker)
+    PROMPTS = /\bsudo\b/
+    def initialize(dsl, picker: Picker, viewer: FollowView)
       @dsl = dsl
       @picker = picker
+      @viewer = viewer
     end
 
     def execute(argv)
@@ -39,7 +41,11 @@ module SemanticCli
 
       command = "#{@dsl.env_prefix}#{command}"
       puts "→ Running: #{command}"
-      system command
+      if cmd_frags.any? { |f| @dsl.follow?(f.name) } && !command.match?(PROMPTS) && @viewer.available?
+        @viewer.new(command).run
+      else
+        system command
+      end
     end
 
     private

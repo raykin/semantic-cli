@@ -151,6 +151,60 @@ class TestRunner < Minitest::Test
     refute_match(/\[debug\]/, err)
   end
 
+  def test_follow_command_runs_in_viewer_when_terminal
+    @dsl.define("log", follow: true) { "tail -f app.log" }
+    runner = SemanticCli::Runner.new(@dsl, viewer: MockViewer.new(available: true))
+
+    capture_io { runner.execute(%w[log echo hi]) }
+    assert_equal ["tail -f app.log | echo hi"], MockViewer.commands
+  end
+
+  def test_follow_command_runs_plain_when_not_terminal
+    @dsl.define("log", follow: true) { "echo tailing" }
+    runner = SemanticCli::Runner.new(@dsl, viewer: MockViewer.new(available: false))
+
+    capture_subprocess_io { runner.execute(%w[log]) }
+    assert_empty MockViewer.commands
+  end
+
+  def test_follow_command_with_sudo_runs_plain
+    @dsl.define("dns", follow: true) { "echo would run sudo tcpdump" }
+    runner = SemanticCli::Runner.new(@dsl, viewer: MockViewer.new(available: true))
+
+    capture_subprocess_io { runner.execute(%w[dns]) }
+    assert_empty MockViewer.commands
+  end
+
+  def test_plain_command_skips_viewer
+    runner = SemanticCli::Runner.new(@dsl, viewer: MockViewer.new(available: true))
+
+    capture_subprocess_io { runner.execute(%w[echo hi]) }
+    assert_empty MockViewer.commands
+  end
+
+  class MockViewer
+    class << self
+      attr_accessor :commands
+    end
+
+    def initialize(available:)
+      @available = available
+      self.class.commands = []
+    end
+
+    def available?
+      @available
+    end
+
+    def new(command)
+      self.class.commands << command
+      self
+    end
+
+    def run
+    end
+  end
+
   class MockPicker
     attr_reader :action_called
 

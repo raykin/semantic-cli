@@ -21,6 +21,14 @@ class TestDSL < Minitest::Test
     assert @dsl.expects_arg?("foo")
   end
 
+  def test_follow_flag
+    @dsl.define("log", follow: true) { "tail -f app.log" }
+    @dsl.define("hello") { "echo hi" }
+    assert @dsl.follow?("log")
+    refute @dsl.follow?("hello")
+    refute @dsl.follow?("missing")
+  end
+
   def test_names_lists_functions_and_resources_without_help
     @dsl.define("") { "help" }
     @dsl.define("hello") { "echo hi" }

@@ -54,6 +54,7 @@ Then just run: `restart nginx`
 
 - `fn(name) { |arg| "shell command" }` — define a function that returns a shell command string
 - `cmd(name, command)` — shorthand when no logic is needed
+- `fn(name, follow: true) { "tail -f app.log" }` — show a streaming command in a scrollable view (PageUp/PageDown, End to follow, `q` to quit) when stdout is a terminal; piped output and commands with `sudo` stay plain
 - `fn('') { "help text" }` — help text, displayed when no arguments are given
 - `macos?` / `linux?` — platform detection helpers
 
